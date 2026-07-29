@@ -3,10 +3,12 @@ import {
   GetHWID, 
   GetSavedEmail, 
   ClearSavedSession, 
+  /* BACKEND APIS COMMENTED OUT FOR STANDALONE TESTING
   RegisterOnServer, 
   LoginOnServer, 
   CheckLicenseOnServer,
   PerformMockOperation
+  */
 } from '../wailsjs/go/main/App';
 import { 
   Cpu, 
@@ -42,17 +44,30 @@ interface LicenseInfo {
   is_active: boolean;
 }
 
+// Standalone Mock License (Bypasses backend server requirement for independent testing)
+const MOCK_OFFLINE_LICENSE: LicenseInfo = {
+  email: 'standalone-user@dft.com',
+  hwid: 'HWID-OFFLINE-TEST-MODE',
+  wallet_balance: 500.00,
+  trial_expires_at: '2099-12-31T23:59:59Z',
+  trial_expired: false,
+  trial_days_remaining: 365,
+  has_access: true,
+  is_active: true
+};
+
 export default function App() {
   // Authentication & License States
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState('standalone-user@dft.com');
   const [password, setPassword] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
   const [loading, setLoading] = useState(false);
   const [authError, setAuthError] = useState('');
-  const [hwid, setHwid] = useState('');
+  const [hwid, setHwid] = useState('HWID-OFFLINE-TEST-MODE');
 
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [license, setLicense] = useState<LicenseInfo | null>(null);
+  /* BACKEND REQUIRED STATE: Set default to true for standalone offline testing */
+  const [isLoggedIn, setIsLoggedIn] = useState(true);
+  const [license, setLicense] = useState<LicenseInfo | null>(MOCK_OFFLINE_LICENSE);
 
   // Tab & Control States
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -66,16 +81,24 @@ export default function App() {
 
   const consoleEndRef = useRef<HTMLDivElement>(null);
 
-  // Load HWID and Check Session on Mount
+  // Load HWID on Mount & Initialize Offline Log
   useEffect(() => {
-    GetHWID().then(id => setHwid(id));
+    GetHWID().then(id => {
+      setHwid(id);
+      setLicense(prev => prev ? { ...prev, hwid: id } : prev);
+    }).catch(() => {});
     
+    addLog("System initialized in Offline Standalone Testing Mode (Backend Server Bypassed).", "warning");
+    addLog("All tools, device connections, and wallet operations run locally.", "info");
+
+    /* BACKEND SESSION CHECK COMMENTED OUT FOR STANDALONE TESTING
     GetSavedEmail().then(savedEmail => {
       if (savedEmail) {
         setEmail(savedEmail);
         verifyLicense(savedEmail);
       }
     });
+    */
   }, []);
 
   // Auto-scroll console logs
@@ -89,6 +112,7 @@ export default function App() {
   };
 
   const verifyLicense = async (userEmail: string) => {
+    /* BACKEND CALL COMMENTED OUT FOR INDEPENDENT TESTING
     try {
       addLog(`Checking license verification for ${userEmail}...`, 'info');
       const responseStr = await CheckLicenseOnServer(userEmail);
@@ -96,63 +120,69 @@ export default function App() {
       setLicense(lic);
       setIsLoggedIn(true);
       setEmail(userEmail);
-      if (lic.has_access) {
-        addLog("License check verified. Access granted.", "success");
-        if (lic.trial_expired) {
-          addLog("7-day trial expired. Running on wallet credits.", "warning");
-        } else {
-          addLog(`7-day trial active: ${lic.trial_days_remaining} days remaining.`, "success");
-        }
-      } else {
-        addLog("Access Denied: Trial expired and wallet balance is empty.", "error");
-      }
     } catch (err: any) {
-      const msg = err.message || err || "Unable to reach licensing server on port 8080.";
-      addLog(`License check failed: ${msg}`, 'error');
-      setAuthError(`Server Error: ${msg}. Make sure server is running on http://localhost:8080`);
+      addLog(`License check failed: ${err.message || err}`, 'error');
     }
+    */
+    
+    // Standalone fallback:
+    setLicense(MOCK_OFFLINE_LICENSE);
+    setIsLoggedIn(true);
+    setEmail(userEmail);
+    addLog("Offline mode: Granted full access without backend verification.", "success");
   };
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setAuthError('');
+
+    /* BACKEND LOGIN CALL COMMENTED OUT FOR INDEPENDENT TESTING
     try {
       if (isRegistering) {
-        addLog(`Registering account ${email}...`, 'info');
         await RegisterOnServer(email, password);
-        addLog("Registration successful! Attempting login...", "success");
       }
-      addLog(`Authenticating ${email}...`, 'info');
       await LoginOnServer(email, password);
-      addLog("Login successful.", "success");
       await verifyLicense(email);
     } catch (err: any) {
-      const msg = err.message || err || "Authentication failed";
-      setAuthError(msg);
-      addLog(`Authentication error: ${msg}`, 'error');
+      setAuthError(err.message || "Authentication failed");
     } finally {
       setLoading(false);
     }
+    */
+
+    // Standalone Login Simulation:
+    setTimeout(() => {
+      setIsLoggedIn(true);
+      setLicense({
+        ...MOCK_OFFLINE_LICENSE,
+        email: email
+      });
+      addLog(`User ${email} authenticated in offline demo mode.`, 'success');
+      setLoading(false);
+    }, 400);
   };
 
   const handleLogout = async () => {
+    /* BACKEND CLEAR SESSION COMMENTED OUT
     await ClearSavedSession();
+    */
     setIsLoggedIn(false);
     setLicense(null);
     setEmail('');
     setPassword('');
-    addLog("Session cleared. Logged out.", "info");
+    addLog("Session cleared. Returned to login screen.", "info");
   };
 
-  // Perform Device Operation
+  // Perform Device Operation (Offline local credit deduction)
   const runOperation = async (opName: string, cost: number, actionSim: () => Promise<void>) => {
-    if (!license?.has_access) {
-      addLog("Operation aborted: license inactive.", "error");
+    if (deviceState === 'disconnected') {
+      addLog("Error: No smartphone connected. Please select a device mode (ADB/Fastboot/EDL) from top right.", "error");
       return;
     }
-    if (deviceState === 'disconnected') {
-      addLog("Error: No smartphone connected. Please connect a device first.", "error");
+
+    if (license && license.wallet_balance < cost) {
+      addLog(`Insufficient wallet balance ($${license.wallet_balance.toFixed(2)}) for operation cost ($${cost.toFixed(2)}).`, "error");
       return;
     }
 
@@ -160,21 +190,22 @@ export default function App() {
     addLog(`Initiating operation: ${opName} ($${cost.toFixed(2)})...`, 'info');
     
     try {
-      // Deduct balance
+      /* BACKEND SERVER CHARGE CALL COMMENTED OUT FOR INDEPENDENT TESTING
       const chargeRes = await PerformMockOperation(email, opName, cost);
-      const parsedRes = JSON.parse(chargeRes);
+      */
       
-      // Update balance
+      // Standalone local balance update:
       if (license) {
+        const newBal = Math.max(0, license.wallet_balance - cost);
         setLicense({
           ...license,
-          wallet_balance: parsedRes.wallet_balance
+          wallet_balance: newBal
         });
       }
 
-      addLog(`Authorization validated. Wallet charged: $${cost.toFixed(2)}.`, 'success');
+      addLog(`Authorization validated locally. Wallet charged: $${cost.toFixed(2)}.`, 'success');
       
-      // Simulate physical flashing/servicing
+      // Execute simulated device servicing steps
       await actionSim();
       
       addLog(`Operation completed successfully: ${opName}`, 'success');
@@ -185,7 +216,7 @@ export default function App() {
     }
   };
 
-  // Simulated Recharges for Testing
+  // Standalone Recharges for Testing
   const handleTopup = async () => {
     const amt = parseFloat(topupAmount);
     if (isNaN(amt) || amt <= 0) {
@@ -193,38 +224,26 @@ export default function App() {
       return;
     }
     setTopupLoading(true);
-    addLog(`Sending wallet top-up request of $${amt.toFixed(2)} to central server...`, 'info');
+    addLog(`Processing offline wallet top-up of $${amt.toFixed(2)}...`, 'info');
 
-    try {
-      // Direct call to admin balance API using basic auth headers for mock topup convenience
-      const adminAuth = btoa('admin@dft.com:admin123');
-      const response = await fetch('http://localhost:8080/api/admin/balance', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Basic ${adminAuth}`
-        },
-        body: JSON.stringify({
-          user_id: 1, // First registered user
-          amount: amt,
-          description: "User Topup via Desktop Client"
-        })
-      });
+    /* BACKEND ADMIN API CALL COMMENTED OUT FOR INDEPENDENT TESTING
+    const adminAuth = btoa('admin@dft.com:admin123');
+    await fetch('http://localhost:8080/api/admin/balance', ...);
+    */
 
-      if (response.ok) {
-        addLog(`Top-up transaction success. Refreshing balance...`, 'success');
-        await verifyLicense(email);
-      } else {
-        throw new Error("Failed to process payment");
+    setTimeout(() => {
+      if (license) {
+        setLicense({
+          ...license,
+          wallet_balance: license.wallet_balance + amt
+        });
       }
-    } catch (err: any) {
-      addLog(`Wallet topup failed: ${err.message}`, 'error');
-    } finally {
+      addLog(`Top-up successful! Added $${amt.toFixed(2)} to local wallet.`, 'success');
       setTopupLoading(false);
-    }
+    }, 500);
   };
 
-  // Auth Screen
+  // Auth Screen (Displayed if logged out)
   if (!isLoggedIn) {
     return (
       <div className="auth-container">
@@ -232,7 +251,7 @@ export default function App() {
           <div className="auth-header">
             <div className="logo-glow">DFT PRO</div>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '0.4rem' }}>
-              Device Flash & Servicing Utility
+              Device Flash & Servicing Utility (Offline Mode)
             </p>
           </div>
 
@@ -277,7 +296,7 @@ export default function App() {
             )}
 
             <button type="submit" className="btn-primary" disabled={loading}>
-              {loading ? 'Processing...' : isRegistering ? 'Create Account' : 'Authenticate'}
+              {loading ? 'Processing...' : isRegistering ? 'Create Account' : 'Authenticate (Offline)'}
             </button>
           </form>
 
@@ -292,7 +311,7 @@ export default function App() {
     );
   }
 
-  // Trial Expired Guard View
+  // Trial Expired Guard View (Bypassed in Offline Mode)
   if (license && !license.has_access) {
     return (
       <div className="auth-container">
@@ -713,7 +732,7 @@ export default function App() {
               <div className="panel ops-card">
                 <h3 style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}><CreditCard className="color-purple" /> Recharge Terminal</h3>
                 <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-                  Top up credits securely. In development, credits can be injected immediately via this mock admin controller.
+                  Top up credits securely. In standalone testing mode, top-ups add funds directly to your local state.
                 </p>
 
                 <div className="form-group" style={{ marginTop: '0.5rem' }}>
@@ -734,7 +753,7 @@ export default function App() {
 
                 <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
                   <button className="btn-primary btn-secondary" style={{ flex: 1 }} onClick={() => verifyLicense(email)}>
-                    <RefreshCw size={14} style={{ marginRight: '0.5rem' }} /> Verify License
+                    <RefreshCw size={14} style={{ marginRight: '0.5rem' }} /> Refresh Status
                   </button>
                 </div>
               </div>

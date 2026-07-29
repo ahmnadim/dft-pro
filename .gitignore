@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+client/frontend/node_modules/
+
+# Build artifacts
+dist/
+client/frontend/dist/
+client/build/bin/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Server local database and session files
+*.db
+*.sqlite
+.dft_config.json
+server/dft_server.db
+
+# OS / IDE files
+.DS_Store
+*.log

@@ -81,7 +81,7 @@ wails dev
 Open PowerShell or CMD inside the cloned `dft` folder:
 ```cmd
 cd client
-go build -tags desktop,production -o dft-client.exe
+go build -tags desktop,production -ldflags="-H windowsgui" -o dft-client.exe
 ```
 
 #### Step 2: Run the App
@@ -94,7 +94,7 @@ If compiling on Linux for Windows:
 ```bash
 cd client
 cd frontend && npm run build && cd ..
-GOOS=windows GOARCH=amd64 go build -tags desktop,production -o dft-client.exe
+GOOS=windows GOARCH=amd64 go build -tags desktop,production -ldflags="-H windowsgui" -o dft-client.exe
 ```
 
 #### Option 2: Using Wails CLI

@@ -73,17 +73,27 @@ wails dev
 
 ## 4. How to Build & Install for Different OS
 
-### A. Building for Windows (`.exe`)
+### A. Building & Running on Windows (`.exe`)
 
-#### Option 1: Direct Go Cross-Compilation (From Linux/macOS)
-You can compile the Windows binary directly without installing Windows SDKs:
+> **Note:** `.exe` binary files are excluded from Git by `.gitignore`. After cloning the repo on Windows, generate the `.exe` with a single command below.
 
+#### Step 1: Generate the `.exe` on Windows (Command Prompt / PowerShell)
+Open PowerShell or CMD inside the cloned `dft` folder:
+```cmd
+cd client
+go build -o dft-client.exe
+```
+
+#### Step 2: Run the App
+Double-click **`dft-client.exe`** inside the `client/` folder to launch the standalone desktop app! No installation wizard is needed as it is a self-contained portable Windows application.
+
+---
+
+#### Alternative: Cross-Compile from Linux/macOS
+If compiling on Linux for Windows:
 ```bash
 cd client
-# Build React frontend assets
 cd frontend && npm run build && cd ..
-
-# Compile Windows executable
 GOOS=windows GOARCH=amd64 go build -o dft-client.exe
 ```
 
